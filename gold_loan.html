@@ -1,0 +1,1042 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gold Loan - Anamika Jewellers</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; }
+        body { font-family: 'Poppins', sans-serif; background: #f4f7f6; margin: 0; padding: 10px; padding-bottom: 80px; overflow-x: hidden; }
+        
+        .header-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .nav-btn { padding: 8px 15px; border: none; background: #ddd; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
+        
+        .tab-container { display: flex; gap: 5px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; background: #ddd; }
+        .tab-btn.active { background: #d4af37; color: white; }
+
+        .loan-card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-left: 5px solid #d4af37; position: relative; width: 100%; }
+        
+        .item-images { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px; }
+        .item-img { width: 50px; height: 50px; border-radius: 6px; object-fit: cover; border: 1px solid #ddd; cursor: pointer;}
+        
+        .loan-info p { margin: 4px 0; font-size: 13px; color: #555; }
+        .loan-items-list { margin: 5px 0; padding-left: 15px; font-size: 12px; color: #333; }
+        
+        .action-bar { position: fixed; bottom: 0; left: 0; width: 100%; background: white; padding: 12px; display: flex; gap: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 1000; }
+        .btn-main { flex: 1; padding: 12px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 15px; }
+
+        .swal-input-group { text-align: left; margin-top: 8px; width: 100%; }
+        .swal-input-group label { font-size: 11px; font-weight: bold; color: #666; margin-left: 5px; display: block; }
+        .swal-custom-input { width: 100% !important; margin: 5px 0 !important; font-size: 14px !important; }
+        
+        .item-row-entry { display: flex; gap: 5px; margin-top: 8px; align-items: center; background: #f9f9f9; padding: 5px; border-radius: 6px; border: 1px solid #eee; width: 100%; }
+        
+        .bank-badge { background: #e3f2fd; color: #1976d2; padding: 8px; border-radius: 6px; font-size: 12px; margin-top: 8px; border: 1px dashed #64b5f6; display: flex; align-items: center; gap: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="header-nav">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button onclick="window.location.href='dashboard.html'" class="nav-btn"><i class="fa-solid fa-arrow-left"></i></button>
+            <span style="font-weight:bold; color:#d4af37; font-size:18px;">Gold Loan</span>
+        </div>
+        <button class="nav-btn" style="background:#e3f2fd; color:#1976d2; padding:6px 12px;" onclick="showHistory()"><i class="fa-solid fa-clock-rotate-left"></i> History</button>
+    </div>
+
+    <div class="tab-container">
+        <button id="tabGiven" class="tab-btn active" onclick="switchTab('GIVEN')">Girvi Diya (Grahak)</button>
+        <button id="tabTaken" class="tab-btn" onclick="switchTab('TAKEN')">Girvi Liya (Bank)</button>
+    </div>
+
+    <div id="loanList">
+        <p style="text-align:center; color:#999;">Hisaab load ho raha hai...</p>
+    </div>
+
+    <div class="action-bar">
+        <button class="btn-main" style="background:#d4af37;" onclick="openNewLoanForm()">
+            <i class="fa-solid fa-plus"></i> Naya Loan Entry
+        </button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, push, set, onValue, get } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDVayVaGksZJldKyvGb_GqgF2hfyyEQVHM",
+            authDomain: "stocks-cash.firebaseapp.com",
+            databaseURL: "https://stocks-cash-default-rtdb.firebaseio.com",
+            projectId: "stocks-cash",
+            storageBucket: "stocks-cash.firebasestorage.app",
+            messagingSenderId: "93527057975",
+            appId: "1:93527057975:web:c57cc6049d19272ccdc1b2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app); 
+        const database = getDatabase(app);
+        
+        let currentTab = 'GIVEN';
+        const IMGBB_API_KEY = "92c27dba00b654deddf7dadcbe8aa9a6"; 
+
+        let savedCustomers = new Set();
+        let savedBanks = new Set();
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                onValue(ref(database, 'gold_loans'), (snapshot) => {
+                    savedCustomers.clear();
+                    savedBanks.clear();
+                    if (snapshot.exists()) {
+                        const data = snapshot.val();
+                        if (data.given) {
+                            Object.values(data.given).forEach(loan => {
+                                if (loan.name) savedCustomers.add(loan.name);
+                                if (loan.bankName) savedBanks.add(loan.bankName);
+                            });
+                        }
+                        if (data.taken) {
+                            Object.values(data.taken).forEach(loan => {
+                                if (loan.name && !loan.isFromCustomer) savedBanks.add(loan.name);
+                            });
+                        }
+                    }
+                });
+                renderLoans();
+            } else {
+                window.location.href = "index.html";
+            }
+        });
+
+        window.switchTab = (tab) => {
+            currentTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tab === 'GIVEN' ? 'tabGiven' : 'tabTaken').classList.add('active');
+            renderLoans();
+        };
+
+        function calculateInterest(principal, rate, startDate, compoundType) {
+            const start = new Date(startDate);
+            const today = new Date();
+            const diffTime = Math.abs(today - start);
+            const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+            
+            if (days <= 0) return { total: principal, interest: 0, days: 0 };
+
+            let n = 365; 
+            if (compoundType === 'MONTHLY') n = 12;
+            else if (compoundType === 'HALFYEARLY') n = 2;
+            else if (compoundType === 'YEARLY') n = 1;
+
+            const t = days / 365; 
+            const r = rate / 100;
+            const amount = principal * Math.pow((1 + r/n), (n * t));
+            
+            return { total: Math.round(amount), interest: Math.round(amount - principal), days: days };
+        }
+
+        // 🔥 THE MAGIC SYNC FUNCTION 🔥
+        // Yeh function aapki dashboard.html file ko chhede bina usme entry daal dega
+        async function syncToDaybook(type, amount, desc, dateStr) {
+            let d = new Date(dateStr);
+            let formattedDate = String(d.getDate()).padStart(2, '0') + '/' + 
+                                String(d.getMonth() + 1).padStart(2, '0') + '/' + 
+                                d.getFullYear();
+
+            if(type === 'JAMA') {
+                await push(ref(database, 'sales_history'), {
+                    billNo: "PAYMENT-RCVD",
+                    customerName: "[Gold Loan] " + desc, 
+                    receivedCash: parseFloat(amount),
+                    date: formattedDate,
+                    timestamp: Date.now()
+                });
+            } else {
+                await push(ref(database, 'expense_history'), {
+                    amount: parseFloat(amount),
+                    details: "[Gold Loan] " + desc,
+                    date: formattedDate,
+                    timestamp: Date.now()
+                });
+            }
+        }
+
+               window.openNewLoanForm = async () => {
+            const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+            const today = new Date(Date.now() - tzOffset).toISOString().split('T')[0];
+
+            const defaultRate = currentTab === 'GIVEN' ? "24" : "12"; 
+            const typeLabel = currentTab === 'GIVEN' ? "Grahak ka Naam" : "Bank / Party ka Naam";
+            
+            const listToUse = currentTab === 'GIVEN' ? 'custList' : 'bankList';
+            const custListHTML = `<datalist id="custList">${Array.from(savedCustomers).map(n => `<option value="${n}">`).join('')}</datalist>`;
+            const bankListHTML = `<datalist id="bankList">${Array.from(savedBanks).map(n => `<option value="${n}">`).join('')}</datalist>`;
+
+            const directBankOptionHtml = currentTab === 'GIVEN' ? `
+                <div style="margin-top:15px; padding:10px; background:#e3f2fd; border-radius:6px; border:1px dashed #1976d2;">
+                    <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:13px; font-weight:bold; color:#1976d2; margin-left:0;">
+                        <input type="checkbox" id="directBankCheck" onchange="window.toggleDirectBankFields(this.checked)" style="width:18px; height:18px;">
+                        Galle mein paise nahi hain? (Sidhe Bank se nikal kar Dena hai)
+                    </label>
+                    <div id="directBankFields" style="display:none; margin-top:10px; flex-wrap:wrap; gap:2%;">
+                        <div class="swal-input-group" style="width:48%; margin-top:0;">
+                            <label>Bank ka Naam</label>
+                            <input id="dbName" class="swal2-input swal-custom-input" placeholder="Bank" list="bankList">
+                        </div>
+                        <div class="swal-input-group" style="width:48%; margin-top:0;">
+                            <label>Packet No.</label>
+                            <input id="dbPkt" class="swal2-input swal-custom-input" placeholder="Packet No">
+                        </div>
+                        <div class="swal-input-group" style="width:31%; margin-top:5px;">
+                            <label>Mool (₹)</label>
+                            <input id="dbAmt" type="number" class="swal2-input swal-custom-input" placeholder="₹">
+                        </div>
+                        <div class="swal-input-group" style="width:31%; margin-top:5px;">
+                            <label>Bank Byaj (%)</label>
+                            <input id="dbRate" type="number" class="swal2-input swal-custom-input" value="12">
+                        </div>
+                        <div class="swal-input-group" style="width:31%; margin-top:5px;">
+                            <label>Byaj Cycle</label>
+                            <select id="dbType" class="swal2-input swal-custom-input" style="padding:0 5px;">
+                                <option value="MONTHLY">Monthly</option>
+                                <option value="HALFYEARLY">Half-Yearly</option>
+                                <option value="YEARLY">Yearly</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            ` : '';
+
+            const { value: formValues } = await Swal.fire({
+                title: 'Naya Girvi Hisaab',
+                width: '95%',
+                html: `
+                    ${custListHTML}
+                    ${bankListHTML}
+                    <div class="swal-input-group">
+                        <label>Date (Tarikh)</label>
+                        <input id="lDate" type="date" class="swal2-input swal-custom-input" value="${today}">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>${typeLabel}</label>
+                        <input id="lName" class="swal2-input swal-custom-input" placeholder="Naam" autocomplete="off" list="${listToUse}">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>WhatsApp Number (Optional)</label>
+                        <input id="lPhone" type="tel" class="swal2-input swal-custom-input" placeholder="10 Digit Mobile No." autocomplete="off">
+                    </div>
+                    <div style="display:flex; gap:8px; width:100%;">
+                        <div class="swal-input-group" style="flex:1.2;">
+                            <label>Mool (₹)</label>
+                            <input id="lAmt" type="number" class="swal2-input swal-custom-input" placeholder="Mool Dhan">
+                        </div>
+                        <div class="swal-input-group" style="flex:0.8;">
+                            <label>Byaj (%)</label>
+                            <input id="lRate" type="number" class="swal2-input swal-custom-input" value="${defaultRate}">
+                        </div>
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Byaj Cycle (Compound)</label>
+                        <select id="lType" class="swal2-input swal-custom-input">
+                            <option value="MONTHLY">Monthly Compound</option>
+                            <option value="HALFYEARLY">Half-Yearly Compound</option>
+                            <option value="YEARLY">Yearly Compound</option>
+                        </select>
+                    </div>
+
+                    ${directBankOptionHtml}
+
+                    <div style="text-align:left; margin-top:15px;">
+                        <label style="font-size:13px; font-weight:bold; color:#d4af37;">Gahno ki Details</label>
+                    </div>
+                    <div id="loanItemsContainer" style="width:100%;"></div>
+                    
+                    <button type="button" class="nav-btn" id="addMoreBtn" style="margin-top:10px; background:#f0f0f0; width:100%; font-size:12px;">
+                        <i class="fa-solid fa-plus"></i> Ek aur Item Jodein
+                    </button>
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Save Karein',
+                didOpen: () => {
+                    const container = document.getElementById('loanItemsContainer');
+                    const addBtn = document.getElementById('addMoreBtn');
+
+                    window.toggleDirectBankFields = (isChecked) => {
+                        document.getElementById('directBankFields').style.display = isChecked ? 'flex' : 'none';
+                    };
+
+                                                            window.addLoanItemRow = (focus = false) => {
+                        const row = document.createElement('div');
+                        row.className = 'item-row-entry';
+                        // 👇 Yahan design ko upar-niche (column) set kar diya gaya hai 👇
+                        row.innerHTML = `
+                            <div style="display: flex; flex-direction: column; width: 100%; gap: 6px;">
+                                <div style="display: flex; width: 100%; gap: 5px; align-items: center;">
+                                    <input type="text" class="swal2-input lDetail" placeholder="Gahna & Wt" style="margin:0; flex:1; font-size:13px; height:38px; padding:5px;">
+                                    <i class="fa-solid fa-circle-xmark" style="color:#c62828; font-size:20px; cursor:pointer; padding:5px;" onclick="this.closest('.item-row-entry').remove()"></i>
+                                </div>
+                                <input type="file" class="swal2-input lImg" accept="image/*" capture="environment" style="margin:0; width:100%; font-size:12px; padding:4px; border:1px dashed #ccc; border-radius:4px; background:#fff;">
+                            </div>
+                        `;
+                        container.appendChild(row);
+
+                        const detailInput = row.querySelector('.lDetail');
+                        detailInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') { e.preventDefault(); window.addLoanItemRow(true); } });
+                        if(focus) detailInput.focus();
+                    };
+                    window.addLoanItemRow();
+                    addBtn.onclick = () => window.addLoanItemRow(true);
+                },
+                preConfirm: async () => {
+                    const name = document.getElementById('lName').value.trim();
+                    const phone = document.getElementById('lPhone').value.trim(); // 👉 NUMBER YAHAN SAVE HOGA
+                    const amount = parseFloat(document.getElementById('lAmt').value);
+                    const selDate = document.getElementById('lDate').value;
+                    const mainRate = parseFloat(document.getElementById('lRate').value); 
+                    const mainCompound = document.getElementById('lType').value;
+                    
+                    const isDirectBank = document.getElementById('directBankCheck') ? document.getElementById('directBankCheck').checked : false;
+
+                    if (!name || isNaN(amount) || !selDate) { Swal.showValidationMessage('Naam, Amount aur Date zaroori hai!'); return false; }
+
+                    let bankData = null;
+                    if (isDirectBank) {
+                        const bName = document.getElementById('dbName').value.trim();
+                        const bPkt = document.getElementById('dbPkt').value.trim();
+                        const bAmt = parseFloat(document.getElementById('dbAmt').value);
+                        const bRate = parseFloat(document.getElementById('dbRate').value);
+                        const bType = document.getElementById('dbType').value;
+
+                        if(!bName || !bPkt || isNaN(bAmt)) {
+                            Swal.showValidationMessage('Bank Details poori bharein!'); return false;
+                        }
+                        bankData = { bName, bPkt, bAmt, bRate, bType }; 
+                    }
+
+                    const itemRows = document.querySelectorAll('.item-row-entry');
+                    let rawItems = [];
+                    for (let row of itemRows) {
+                        const detail = row.querySelector('.lDetail').value.trim();
+                        const file = row.querySelector('.lImg').files[0];
+                        if (detail !== "" || file) { 
+                            rawItems.push({ detail: detail || "Gahna", file: file }); 
+                        }
+                    }
+
+                    if (rawItems.length === 0) {
+                        Swal.showValidationMessage('Kam se kam ek gahna ya photo zaroori hai!');
+                        return false;
+                    }
+
+                    Swal.getConfirmButton().disabled = true;
+                    Swal.getTitle().innerText = 'Data Save ho raha hai...';
+                    Swal.showLoading();
+
+                    let itemsArray = [];
+                    for (let item of rawItems) {
+                        let imgUrl = "";
+                        if (item.file) {
+                            const formData = new FormData();
+                            formData.append("image", item.file);
+                            try {
+                                const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, { method: "POST", body: formData });
+                                const json = await res.json();
+                                if (json.success) {
+                                    imgUrl = json.data.url;
+                                } else {
+                                    Swal.hideLoading();
+                                    Swal.getTitle().innerText = 'Naya Girvi Hisaab';
+                                    Swal.showValidationMessage('Upload Fail! Photo ka size chhota karein.');
+                                    return false;
+                                }
+                            } catch (e) { 
+                                Swal.hideLoading();
+                                Swal.getTitle().innerText = 'Naya Girvi Hisaab';
+                                Swal.showValidationMessage('Internet error ya photo bahut badi hai!'); 
+                                return false; 
+                            }
+                        }
+                        itemsArray.push({ detail: item.detail, imageUrl: imgUrl });
+                    }
+
+                    // 👉 YAHAN 'phone' BHI FIREBASE MEIN BHEJ DIYA
+                    return { 
+                        name, phone, amount, 
+                        rate: mainRate, 
+                        compoundType: mainCompound,
+                        items: itemsArray, 
+                        date: new Date(selDate).toISOString(), 
+                        status: 'ACTIVE',
+                        isPledged: isDirectBank, 
+                        isDirectBankData: bankData
+                    };
+                }
+            });
+
+            if (formValues) {
+                try {
+                    const cashRef = ref(database, 'shop_cash/balance');
+                    const cashSnap = await get(cashRef);
+                    let currentCash = cashSnap.exists() ? parseFloat(cashSnap.val()) : 0;
+
+                    if (currentTab === 'GIVEN' && formValues.isDirectBankData) {
+                        const bData = formValues.isDirectBankData;
+                        const takenRef = push(ref(database, 'gold_loans/taken'));
+                        const givenRef = push(ref(database, 'gold_loans/given'));
+
+                        await set(takenRef, {
+                            name: bData.bName + ' (For ' + formValues.name + ')', amount: bData.bAmt, rate: bData.bRate,
+                            compoundType: bData.bType, date: formValues.date, linkedCustId: givenRef.key, isFromCustomer: true, packetNo: bData.bPkt
+                        });
+
+                        await set(givenRef, {
+                            name: formValues.name, phone: formValues.phone, amount: formValues.amount, rate: formValues.rate,
+                            compoundType: formValues.compoundType, items: formValues.items, date: formValues.date,
+                            status: 'ACTIVE', isPledged: true, bankName: bData.bName, bankPacketNo: bData.bPkt, bankLoanId: takenRef.key
+                        });
+
+                        await set(cashRef, currentCash + bData.bAmt - formValues.amount);
+                        await syncToDaybook('JAMA', bData.bAmt, `Bank se Liya: ${bData.bName}`, formValues.date);
+                        await syncToDaybook('KHARCH', formValues.amount, `Girvi Diya: ${formValues.name}`, formValues.date);
+                        
+                    } else {
+                        delete formValues.isDirectBankData; 
+                        const path = currentTab === 'GIVEN' ? 'gold_loans/given' : 'gold_loans/taken';
+                        await push(ref(database, path), formValues);
+                        
+                        await set(cashRef, currentTab === 'GIVEN' ? currentCash - formValues.amount : currentCash + formValues.amount);
+                        const dbType = currentTab === 'GIVEN' ? 'KHARCH' : 'JAMA';
+                        const dbDesc = currentTab === 'GIVEN' ? `Girvi Diya: ${formValues.name}` : `Bank se Liya: ${formValues.name}`;
+                        await syncToDaybook(dbType, formValues.amount, dbDesc, formValues.date);
+                    }
+                    Swal.fire('Saved!', 'Entry aur Galla update ho gaya.', 'success');
+                } catch(error) {
+                    Swal.fire('Error', 'Data save nahi hua: ' + error.message, 'error');
+                }
+            }
+        };
+
+        window.pledgeToBank = async (custId, custName) => {
+            const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+            const today = new Date(Date.now() - tzOffset).toISOString().split('T')[0];
+            const bankListHTML = `<datalist id="pledgeBankList">${Array.from(savedBanks).map(n => `<option value="${n}">`).join('')}</datalist>`;
+
+            const {value: formValues} = await Swal.fire({
+                title: 'Bank Mein Girvi Rakhein',
+                html: `
+                    ${bankListHTML}
+                    <div class="swal-input-group">
+                        <label>Bank ka Naam</label>
+                        <input id="bName" class="swal2-input swal-custom-input" placeholder="Jaise: Muthoot" autocomplete="off" list="pledgeBankList">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Packet No.</label>
+                        <input id="bPkt" class="swal2-input swal-custom-input" placeholder="Packet No">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Bank se Kitna Liya? (₹)</label>
+                        <input id="bAmt" type="number" class="swal2-input swal-custom-input" placeholder="Mool Dhan">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Bank ka Byaj (% Salana)</label>
+                        <input id="bRate" type="number" class="swal2-input swal-custom-input" value="12">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Byaj Cycle</label>
+                        <select id="bType" class="swal2-input swal-custom-input">
+                            <option value="MONTHLY">Monthly</option>
+                            <option value="HALFYEARLY">Half-Yearly</option>
+                            <option value="YEARLY">Yearly</option>
+                        </select>
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Date</label>
+                        <input id="bDate" type="date" class="swal2-input swal-custom-input" value="${today}">
+                    </div>
+                `,
+                showCancelButton: true, confirmButtonText: 'Save', confirmButtonColor: '#1976d2',
+                preConfirm: () => {
+                    const bName = document.getElementById('bName').value;
+                    const bPkt = document.getElementById('bPkt').value;
+                    const bAmt = parseFloat(document.getElementById('bAmt').value);
+                    if(!bName || !bPkt || isNaN(bAmt)) { Swal.showValidationMessage('Sabhi jankari bharein!'); return false; }
+                    return { bName, bPkt, bAmt, bRate: parseFloat(document.getElementById('bRate').value), bType: document.getElementById('bType').value, bDate: document.getElementById('bDate').value };
+                }
+            });
+
+            if(formValues) {
+                try {
+                    Swal.fire({ title: 'Transferring...', didOpen: () => Swal.showLoading() });
+                    const takenRef = push(ref(database, 'gold_loans/taken'));
+                    await set(takenRef, {
+                        name: formValues.bName + ' (For ' + custName + ')', amount: formValues.bAmt, rate: formValues.bRate,
+                        compoundType: formValues.bType, date: new Date(formValues.bDate).toISOString(), linkedCustId: custId, isFromCustomer: true, packetNo: formValues.bPkt
+                    });
+
+                    await set(ref(database, `gold_loans/given/${custId}/isPledged`), true);
+                    await set(ref(database, `gold_loans/given/${custId}/bankName`), formValues.bName);
+                    await set(ref(database, `gold_loans/given/${custId}/bankPacketNo`), formValues.bPkt);
+                    await set(ref(database, `gold_loans/given/${custId}/bankLoanId`), takenRef.key);
+
+                    const cashRef = ref(database, 'shop_cash/balance');
+                    const cashSnap = await get(cashRef);
+                    await set(cashRef, (cashSnap.exists() ? parseFloat(cashSnap.val()) : 0) + formValues.bAmt);
+
+                    await syncToDaybook('JAMA', formValues.bAmt, `Bank se Liya: ${formValues.bName}`, formValues.bDate);
+
+                    Swal.fire('Ho Gaya!', 'Gahna Bank me chala gaya aur Galla update ho gaya.', 'success');
+                } catch(err) { Swal.fire('Error', err.message, 'error'); }
+            }
+        };
+
+        window.releaseFromBank = async (custId, bankLoanId) => {
+            Swal.fire({
+                title: 'Bank se Wapas Laaye?', text: 'Bank ko paise de diye? (Galle se paise katenge)', icon: 'question', showCancelButton: true, confirmButtonColor: '#2e7d32', confirmButtonText: 'Haan, Nikal Liya'
+            }).then(async (result) => {
+                if(result.isConfirmed) {
+                    try {
+                        Swal.fire({ title: 'Updating...', didOpen: () => Swal.showLoading() });
+                        const bSnap = await get(ref(database, `gold_loans/taken/${bankLoanId}`));
+                        if(bSnap.exists()) {
+                            const bData = bSnap.val();
+                            const bCalc = calculateInterest(bData.amount, bData.rate, bData.date, bData.compoundType);
+                            
+                            const cashRef = ref(database, 'shop_cash/balance');
+                            const cashSnap = await get(cashRef);
+                            await set(cashRef, (cashSnap.exists() ? parseFloat(cashSnap.val()) : 0) - bCalc.total);
+                            
+                            await syncToDaybook('KHARCH', bCalc.total, `Bank Khata Band: ${bData.name}`, new Date());
+
+                            bData.closedOn = new Date().toISOString();
+                            bData.finalTotalPaid = bCalc.total;
+                            bData.loanType = 'TAKEN'; 
+                            
+                            Object.keys(bData).forEach(key => bData[key] === undefined && delete bData[key]);
+                            
+                            await push(ref(database, 'gold_loans_history'), bData);
+                            await set(ref(database, `gold_loans/taken/${bankLoanId}`), null);
+                        }
+                        
+                        await set(ref(database, `gold_loans/given/${custId}/isPledged`), null);
+                        await set(ref(database, `gold_loans/given/${custId}/bankName`), null);
+                        await set(ref(database, `gold_loans/given/${custId}/bankPacketNo`), null);
+                        await set(ref(database, `gold_loans/given/${custId}/bankLoanId`), null);
+                        
+                        Swal.fire('Released!', 'Bank se chhudaya aur History mein save ho gaya.', 'success');
+                    } catch(err) { Swal.fire('Error', err.message, 'error'); }
+                }
+            });
+        };
+
+                       function renderLoans() {
+            const listDiv = document.getElementById('loanList');
+            onValue(ref(database, `gold_loans/${currentTab.toLowerCase()}`), (snapshot) => {
+                listDiv.innerHTML = "";
+                if (!snapshot.exists()) { listDiv.innerHTML = '<p style="text-align:center; padding:20px; color:#888;">Koi active entry nahi hai.</p>'; return; }
+
+                snapshot.forEach(child => {
+                    const loan = child.val();
+                    const calc = calculateInterest(loan.amount, loan.rate, loan.date, loan.compoundType);
+
+                    let itemsHtml = '';
+                    let imagesHtml = '';
+                    if (loan.items) {
+                        loan.items.forEach(item => {
+                            itemsHtml += `<li>${item.detail}</li>`;
+                            if(item.imageUrl) imagesHtml += `<img src="${item.imageUrl}" class="item-img" onclick="window.open('${item.imageUrl}', '_blank')">`;
+                        });
+                    }
+
+                    let bankBadge = '';
+                    let actionButtonsHtml = '';
+                    
+                    // 👉 YAHAN WHATSAPP BUTTON MEIN PHONE NUMBER ADD KIYA GAYA HAI: '${loan.phone || ''}'
+                    if (currentTab === 'GIVEN') {
+                        if (loan.isPledged) {
+                            bankBadge = `
+                                <div class="bank-badge">
+                                    <i class="fa-solid fa-building-columns"></i> 
+                                    <div><strong>Bank:</strong> ${loan.bankName} <br> <strong>Packet No:</strong> ${loan.bankPacketNo}</div>
+                                </div>`;
+                            actionButtonsHtml = `
+                                <button class="nav-btn" style="flex:1; background:#ffe0b2; color:#e65100; font-size:11px;" onclick="releaseFromBank('${child.key}', '${loan.bankLoanId}')"><i class="fa-solid fa-unlock"></i> Bank Se Chhudaya</button>
+                                <button class="nav-btn" style="flex:1; background:#e8f5e9; color:#2e7d32; font-size:11px;" onclick="whatsappLoan('${loan.name}', '${loan.phone || ''}', ${calc.total}, ${calc.interest})"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
+                            `;
+                        } else {
+                            actionButtonsHtml = `
+                                <button class="nav-btn" style="flex:1; background:#bbdefb; color:#1976d2; font-size:11px;" onclick="pledgeToBank('${child.key}', '${loan.name}')"><i class="fa-solid fa-building-columns"></i> Bank Me Rakhein</button>
+                                <button class="nav-btn" style="flex:1; background:#e8f5e9; color:#2e7d32; font-size:11px;" onclick="whatsappLoan('${loan.name}', '${loan.phone || ''}', ${calc.total}, ${calc.interest})"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>
+                            `;
+                        }
+                    } else {
+                        actionButtonsHtml = `<button class="nav-btn" style="flex:1; background:#e8f5e9; color:#2e7d32; font-size:11px;" onclick="whatsappLoan('${loan.name}', '${loan.phone || ''}', ${calc.total}, ${calc.interest})"><i class="fa-brands fa-whatsapp"></i> WhatsApp</button>`;
+                        if(loan.isFromCustomer) {
+                            bankBadge = `<div style="font-size:11px; color:#e65100; margin-top:5px;"><i class="fa-solid fa-link"></i> Linked to Customer Loan. (Packet: ${loan.packetNo})</div>`;
+                        }
+                    }
+   actionButtonsHtml += `<button class="nav-btn" style="flex:1; background:#e3f2fd; color:#1976d2; font-size:11px;" onclick="window.jamaKarein('${child.key}')"><i class="fa-solid fa-hand-holding-dollar"></i> Jama</button>`;                
+                    actionButtonsHtml += `<button class="nav-btn" style="flex:1; background:#fff9c4; color:#f57f17; font-size:11px;" onclick="window.editLoan('${child.key}')"><i class="fa-solid fa-pen-to-square"></i> Edit</button>`;
+                    actionButtonsHtml += `<button class="nav-btn" style="flex:1; background:#ffebee; color:#c62828; font-size:11px;" onclick="window.deleteLoan('${child.key}', ${calc.total})"><i class="fa-solid fa-trash"></i> Khata Band</button>`;
+
+
+                    const card = document.createElement('div');
+                    card.className = 'loan-card';
+                    card.innerHTML = `
+                        <div class="loan-info">
+                            <p style="font-size:14px;"><strong>${loan.name}</strong> <span style="font-size:10px; color:#888;">(${new Date(loan.date).toLocaleDateString('en-GB')})</span></p>
+                            ${loan.phone ? `<p style="font-size:11px; color:#1976d2; margin-top:-3px;"><a href="tel:${loan.phone}" style="text-decoration:none; color:inherit;"><i class="fa-solid fa-phone"></i> ${loan.phone}</a></p>` : ''}
+
+                            <div style="background:#fcfcfc; padding:5px; border-radius:5px; margin:5px 0;">
+                                <ul class="loan-items-list">${itemsHtml}</ul>
+                                <div class="item-images">${imagesHtml}</div>
+                            </div>
+                            ${bankBadge}
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+                                <div><span style="color:#c62828; font-weight:bold;">Mool: ₹${loan.amount}</span><br><span style="color:#2e7d32; font-size:12px;">Byaj: +₹${calc.interest}</span></div>
+                                <div style="text-align:right;"><small>Total Pay</small><br><strong style="font-size:16px;">₹${calc.total}</strong></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:5px; border-top:1px solid #f0f0f0; padding-top:8px;">${actionButtonsHtml.replace(/flex:1;/g, 'flex: 1 1 30%; min-width: 85px;')}</div>
+
+                    `;
+                    listDiv.appendChild(card);
+                });
+            });
+        }
+
+        
+                window.whatsappLoan = (name, phone, total, interest) => {
+            const msg = `*Anamika Jewellers - Girvi Hisaab*\n\nNamaste ${name},\nAapka girvi hisaab aaj ki date tak:\nTotal Byaj: ₹${interest}\n*Kul Rakam: ₹${total}*\n\nShukriya!`;
+            
+            let waLink = 'https://wa.me/';
+            
+            // Agar phone number save hai, toh usko theek karke link banayenge
+            if (phone && phone.trim() !== '') {
+                let cleanPhone = phone.replace(/[^0-9]/g, ''); // Space ya + hata do
+                if (cleanPhone.length === 10) { cleanPhone = '91' + cleanPhone; } // India code add karo
+                waLink += cleanPhone;
+            }
+            
+            window.open(`${waLink}?text=${encodeURIComponent(msg)}`, '_blank');
+        };
+
+
+               window.editLoan = async (id) => {
+            const path = `gold_loans/${currentTab.toLowerCase()}/${id}`;
+            
+            try {
+                const snap = await get(ref(database, path));
+                
+                if (!snap.exists()) {
+                    Swal.fire('Error', 'Khata nahi mila.', 'error');
+                    return;
+                }
+                
+                let loanData = snap.val();
+                let formattedDate = loanData.date ? new Date(loanData.date).toISOString().split('T')[0] : '';
+                
+                let html = '';
+                let bData = null;
+
+                html += `
+                    <div class="swal-input-group">
+                        <label>${currentTab === 'GIVEN' ? 'Grahak ka Naam' : 'Bank / Party ka Naam'}</label>
+                        <input id="editName" class="swal2-input swal-custom-input" value="${loanData.name}">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>WhatsApp Number</label>
+                        <input id="editPhone" type="tel" class="swal2-input swal-custom-input" placeholder="Mobile Number" value="${loanData.phone || ''}">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Mool (₹)</label>
+                        <input id="editAmt" type="number" class="swal2-input swal-custom-input" value="${loanData.amount}">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Byaj (%)</label>
+                        <input id="editRate" type="number" step="0.01" class="swal2-input swal-custom-input" value="${loanData.rate}">
+                    </div>
+                    <div class="swal-input-group">
+                        <label>Date (Tarikh)</label>
+                        <input id="editDate" type="date" class="swal2-input swal-custom-input" value="${formattedDate}">
+                    </div>
+                `;
+
+                if (currentTab === 'TAKEN') {
+                    html += `
+                        <div class="swal-input-group">
+                            <label>Packet No.</label>
+                            <input id="editPkt" class="swal2-input swal-custom-input" value="${loanData.packetNo || ''}">
+                        </div>
+                    `;
+                }
+
+                if (currentTab === 'GIVEN' && loanData.isPledged && loanData.bankLoanId) {
+                    const bSnap = await get(ref(database, `gold_loans/taken/${loanData.bankLoanId}`));
+                    if (bSnap.exists()) {
+                        bData = bSnap.val();
+                        html += `
+                            <div style="margin-top:15px; padding:10px; background:#e3f2fd; border-radius:6px; border:1px dashed #1976d2;">
+                                <label style="font-size:12px; font-weight:bold; color:#1976d2; margin-bottom:5px; display:block;">
+                                    <i class="fa-solid fa-building-columns"></i> Bank/Party ki Jankari Edit Karein
+                                </label>
+                                
+                                <div class="swal-input-group" style="margin-top:0;">
+                                    <label>Bank/Party ka Naam</label>
+                                    <input id="editBName" class="swal2-input swal-custom-input" value="${loanData.bankName || ''}">
+                                </div>
+                                <div style="display:flex; gap:8px;">
+                                    <div class="swal-input-group" style="flex:1;">
+                                        <label>Packet No.</label>
+                                        <input id="editBPkt" class="swal2-input swal-custom-input" value="${loanData.bankPacketNo || ''}">
+                                    </div>
+                                    <div class="swal-input-group" style="flex:1;">
+                                        <label>Bank Byaj (%)</label>
+                                        <input id="editBRate" type="number" step="0.01" class="swal2-input swal-custom-input" value="${bData.rate || ''}">
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                const { value: formValues } = await Swal.fire({
+                    title: 'Entry Edit Karein',
+                    html: html,
+                    showCancelButton: true,
+                    confirmButtonText: 'Update Karein',
+                    confirmButtonColor: '#f57f17',
+                    preConfirm: () => {
+                        const name = document.getElementById('editName').value.trim();
+                        const phone = document.getElementById('editPhone').value.trim(); // 👉 EDIT SAVE
+                        const amount = parseFloat(document.getElementById('editAmt').value);
+                        const rate = parseFloat(document.getElementById('editRate').value);
+                        const dateVal = document.getElementById('editDate').value;
+                        
+                        let result = { name, phone, amount, rate, date: new Date(dateVal).toISOString() };
+
+                        if (currentTab === 'TAKEN') {
+                            result.packetNo = document.getElementById('editPkt') ? document.getElementById('editPkt').value.trim() : '';
+                        }
+
+                        if (currentTab === 'GIVEN' && bData) {
+                            result.bankName = document.getElementById('editBName').value.trim();
+                            result.bankPacketNo = document.getElementById('editBPkt').value.trim();
+                            result.bankRate = parseFloat(document.getElementById('editBRate').value);
+                        }
+                        
+                        if (!name || isNaN(amount) || isNaN(rate) || !dateVal) {
+                            Swal.showValidationMessage('Sabhi details theek se bharein!');
+                            return false;
+                        }
+                        return result;
+                    }
+                });
+
+                if (formValues) {
+                    Swal.fire({ title: 'Updating...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    
+                    const amountDiff = formValues.amount - loanData.amount;
+                    
+                    if(amountDiff !== 0) {
+                        const cashRef = ref(database, 'shop_cash/balance');
+                        const cashSnap = await get(cashRef);
+                        let currentCash = cashSnap.exists() ? parseFloat(cashSnap.val()) : 0;
+                        
+                        if(currentTab === 'GIVEN') {
+                            await set(cashRef, currentCash - amountDiff);
+                            if(amountDiff > 0) {
+                                await syncToDaybook('KHARCH', amountDiff, `Edit Adjustment (+): ${formValues.name}`, new Date().toISOString());
+                            } else {
+                                await syncToDaybook('JAMA', Math.abs(amountDiff), `Edit Adjustment (-): ${formValues.name}`, new Date().toISOString());
+                            }
+                        } else {
+                            await set(cashRef, currentCash + amountDiff);
+                            if(amountDiff > 0) {
+                                await syncToDaybook('JAMA', amountDiff, `Edit Adjustment (+): ${formValues.name}`, new Date().toISOString());
+                            } else {
+                                await syncToDaybook('KHARCH', Math.abs(amountDiff), `Edit Adjustment (-): ${formValues.name}`, new Date().toISOString());
+                            }
+                        }
+                    }
+
+                    loanData.name = formValues.name;
+                    loanData.phone = formValues.phone; // 👉 MAIN DATA UPDATE
+                    loanData.amount = formValues.amount;
+                    loanData.rate = formValues.rate;
+                    loanData.date = formValues.date;
+                    
+                    if (currentTab === 'TAKEN') {
+                        loanData.packetNo = formValues.packetNo;
+                    }
+
+                    if (currentTab === 'GIVEN' && bData) {
+                        loanData.bankName = formValues.bankName;
+                        loanData.bankPacketNo = formValues.bankPacketNo;
+                        
+                        bData.rate = formValues.bankRate;
+                        bData.packetNo = formValues.bankPacketNo;
+                        bData.name = `${formValues.bankName} (For ${formValues.name})`; 
+                        
+                        await set(ref(database, `gold_loans/taken/${loanData.bankLoanId}`), bData);
+                    }
+                    
+                    await set(ref(database, path), loanData);
+                    
+                    Swal.fire('Updated!', 'Entry safalta se edit ho gayi.', 'success');
+                }
+            } catch(error) {
+                console.error(error);
+                Swal.fire('Error', 'Update nahi hua: ' + error.message, 'error');
+            }
+        };
+
+
+                    window.deleteLoan = (id, total) => {
+            Swal.fire({ title: 'Khata Band Karein?', text: 'Kya poora hisaab (₹' + total + ') chukta ho gaya hai?', icon: 'warning', showCancelButton: true, confirmButtonColor: '#d32f2f' }).then(async (r) => {
+                if(r.isConfirmed){
+                    try {
+                        Swal.fire({ title: 'Closing...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                        const path = `gold_loans/${currentTab.toLowerCase()}/${id}`;
+                        
+                        const checkSnap = await get(ref(database, path));
+                        if(!checkSnap.exists()) {
+                             Swal.close(); // Pura loader popup band kiya
+                             setTimeout(() => { Swal.fire('Error', 'Khata nahi mila.', 'error'); }, 100);
+                             return;
+                        }
+                        let loanData = checkSnap.val();
+
+                        if(currentTab === 'GIVEN' && loanData.isPledged) {
+                            Swal.close(); // <-- MAIN FIX: Loader popup poori tarah band
+                            setTimeout(() => {
+                                // 100ms baad fresh Error popup khulega jisme koi loader nahi hoga
+                                Swal.fire('Error!', 'Yeh gahna abhi Bank mein rakha hai. Khata band karne se pehle ise "Bank se Chhudaya" dabakar wapas laayein!', 'error');
+                            }, 100);
+                            return;
+                        }
+
+                        const cRef = ref(database, 'shop_cash/balance');
+                        const cSnap = await get(cRef);
+                        let cCash = cSnap.exists() ? parseFloat(cSnap.val()) : 0;
+                        
+                        await set(cRef, currentTab === 'GIVEN' ? cCash + total : cCash - total); 
+                        
+                        const dbType = currentTab === 'GIVEN' ? 'JAMA' : 'KHARCH';
+                        const dbDesc = currentTab === 'GIVEN' ? `Girvi Wapas: ${loanData.name}` : `Bank Khata Band: ${loanData.name}`;
+                        await syncToDaybook(dbType, total, dbDesc, new Date());
+
+                        loanData.closedOn = new Date().toISOString();
+                        loanData.finalTotalPaid = total;
+                        loanData.loanType = currentTab; 
+                        
+                        const cleanLoanData = JSON.parse(JSON.stringify(loanData));
+                        await push(ref(database, 'gold_loans_history'), cleanLoanData);
+
+                        await set(ref(database, path), null);
+                        
+                        Swal.close(); // Loader band
+                        setTimeout(() => { Swal.fire('Deleted', 'Hisaab band ho gaya aur History mein save ho gaya.', 'success'); }, 100);
+                    } catch(err) { 
+                        Swal.close(); // Loader band
+                        setTimeout(() => { Swal.fire('Error', err.message, 'error'); }, 100);
+                    }
+                }
+            });
+        };
+
+
+
+                            window.showHistory = async () => {
+            Swal.fire({ title: 'History load ho rahi hai...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            try {
+                const snap = await get(ref(database, 'gold_loans_history'));
+                
+                if(!snap.exists()) {
+                    Swal.fire('Khali Hai', 'Abhi tak koi khata band nahi hua hai.', 'info');
+                    return;
+                }
+
+                let historyArr = [];
+                let keysArr = []; 
+                snap.forEach(child => {
+                    historyArr.push(child.val());
+                    keysArr.push(child.key);
+                });
+                historyArr.reverse(); 
+                keysArr.reverse();
+
+                let html = '<div style="max-height: 400px; overflow-y: auto; text-align: left; font-size:13px;">';
+                
+                historyArr.forEach((h, index) => {
+                    let typeBadge = h.loanType === 'GIVEN' 
+                        ? '<span style="background:#e8f5e9; color:#2e7d32; padding:2px 5px; border-radius:4px; font-size:10px;">Diya (Grahak)</span>' 
+                        : '<span style="background:#ffebee; color:#c62828; padding:2px 5px; border-radius:4px; font-size:10px;">Liya (Bank)</span>';
+                    
+                    let startDate = h.date ? new Date(h.date).toLocaleDateString('en-GB') : 'N/A';
+                    let closeDate = h.closedOn ? new Date(h.closedOn).toLocaleDateString('en-GB') : 'N/A';
+
+                    let bankBadge = '';
+                    if (h.loanType === 'TAKEN' && h.packetNo) {
+                        bankBadge = `<div style="background: #e3f2fd; color: #1976d2; padding: 6px; border-radius: 6px; font-size: 11px; margin-bottom: 5px; border: 1px dashed #64b5f6; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-building-columns"></i> <div><strong>Packet No:</strong> ${h.packetNo}</div></div>`;
+                    } else if (h.bankName || h.bankPacketNo) {
+                        bankBadge = `<div style="background: #e3f2fd; color: #1976d2; padding: 6px; border-radius: 6px; font-size: 11px; margin-bottom: 5px; border: 1px dashed #64b5f6; display: flex; align-items: center; gap: 8px;"><i class="fa-solid fa-building-columns"></i> <div><strong>Bank:</strong> ${h.bankName || 'N/A'} <br> <strong>Packet No:</strong> ${h.bankPacketNo || 'N/A'}</div></div>`;
+                    }
+
+                    html += `<div style="border-bottom:1px solid #eee; padding:10px 0; position:relative;">
+                        
+                        <i class="fa-solid fa-trash-can" style="position:absolute; right:0; top:10px; color:#c62828; font-size:15px; cursor:pointer; padding:6px; background:#ffebee; border-radius:4px;" onclick="window.deleteHistoryEntry('${keysArr[index]}', '${h.loanType}', ${h.finalTotalPaid || 0}, '${h.name}')"></i>
+
+                        <div style="display:flex; justify-content:space-between; margin-bottom:5px; padding-right: 35px;">
+                            <strong>${h.name || 'Unknown'}</strong> ${typeBadge}
+                        </div>
+                        <div style="color:#666; font-size:11px; margin-bottom:5px;">Shuru: ${startDate} | Band: ${closeDate}</div>
+                        
+                        ${bankBadge}  
+
+                        <div style="display:flex; justify-content:space-between;">
+                            <span style="color:#c62828;">Mool: ₹${h.amount || 0}</span>
+                            <strong style="color:#2e7d32;">Total Paid: ₹${h.finalTotalPaid || 0}</strong>
+                        </div>
+                    </div>`;
+                });
+                html += '</div>';
+
+                Swal.fire({ title: 'Khata Band (History)', html: html, confirmButtonText: 'Close', confirmButtonColor: '#777' });
+            } catch(err) { Swal.fire('Error', 'History load nahi hui: ' + err.message, 'error'); }
+        };
+
+        window.deleteHistoryEntry = async (historyKey, loanType, amount, name) => {
+            const { value: fixCash } = await Swal.fire({
+                title: 'Entry Delete Karein?',
+                html: `Kya aap sach mein <b>${name}</b> ki history entry hatana chahte hain?<br><br>
+                       <label style="display:flex; align-items:center; justify-content:center; gap:10px; font-size:13px; color:#d32f2f; background:#ffebee; padding:10px; border-radius:6px; cursor:pointer;">
+                           <input type="checkbox" id="fixCashCheck" checked style="width:18px; height:18px;">
+                           Galla aur Daybook wapas theek karein?
+                       </label>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Haan, Hatao',
+                confirmButtonColor: '#d32f2f',
+                preConfirm: () => { return document.getElementById('fixCashCheck').checked; }
+            });
+
+            if (fixCash !== undefined) {
+                try {
+                    Swal.fire({ title: 'Deleting...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    
+                    await set(ref(database, `gold_loans_history/${historyKey}`), null);
+
+                    if (fixCash) {
+                        const cashRef = ref(database, 'shop_cash/balance');
+                        const cashSnap = await get(cashRef);
+                        let currentCash = cashSnap.exists() ? parseFloat(cashSnap.val()) : 0;
+                        
+                        if (loanType === 'GIVEN') {
+                            await set(cashRef, currentCash - amount);
+                            await syncToDaybook('KHARCH', amount, `Test Delete (-): ${name}`, new Date().toISOString());
+                        } else {
+                            await set(cashRef, currentCash + amount);
+                            await syncToDaybook('JAMA', amount, `Test Delete (+): ${name}`, new Date().toISOString());
+                        }
+                    }
+
+                    Swal.fire('Deleted!', 'Entry hat gayi aur hisaab update ho gaya.', 'success');
+                } catch (err) { Swal.fire('Error', err.message, 'error'); }
+            }
+        };
+
+// Agar koi vyaj ya kuchh rakam Jama karne aaye to
+
+                window.jamaKarein = async (id) => {
+            const path = `gold_loans/${currentTab.toLowerCase()}/${id}`;
+            try {
+                Swal.fire({ title: 'Hisaab nikal rahe hain...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                const snap = await get(ref(database, path));
+                
+                if (!snap.exists()) {
+                    Swal.close();
+                    setTimeout(() => Swal.fire('Error', 'Khata nahi mila.', 'error'), 100);
+                    return;
+                }
+                
+                let loanData = snap.val();
+                const calc = calculateInterest(loanData.amount, loanData.rate, loanData.date, loanData.compoundType);
+                
+                Swal.close(); // <-- Pehla popup band kiya
+                
+                // 🌟 MAIN FIX: Naya form kholne se pehle 150 milliseconds ka gap de diya taaki spinner poori tarah hat jaye
+                await new Promise(resolve => setTimeout(resolve, 150));
+
+                const { value: jamaAmount } = await Swal.fire({
+                    title: 'Rakam Jama Karein',
+                    html: `
+                        <div style="text-align:left; font-size:14px; background:#f9f9f9; padding:10px; border-radius:8px; margin-bottom:15px; border:1px solid #ddd;">
+                            <p style="margin:5px 0; color:#555;"><strong>Grahak:</strong> ${loanData.name}</p>
+                            <p style="margin:5px 0;"><strong>Purana Mool:</strong> ₹${loanData.amount}</p>
+                            <p style="margin:5px 0; color:#c62828;"><strong>Aaj tak ka Byaaj:</strong> +₹${calc.interest}</p>
+                            <hr style="border:0; border-top:1px dashed #bbb; margin:8px 0;">
+                            <p style="margin:5px 0; font-size:16px; color:#2e7d32;"><strong>Total Dena Hai: ₹${calc.total}</strong></p>
+                        </div>
+                        <div class="swal-input-group">
+                            <label>Grahak ne kitne diye? (₹)</label>
+                            <input id="jamaInput" type="number" class="swal2-input swal-custom-input" placeholder="Sirf Byaaj ya Mool sahit">
+                        </div>
+                        <p style="font-size:11px; color:#666; margin-top:10px;">*Jama hone ke baad, bacha hua paisa Naya 'Mool' ban jayega aur Tarikh aaj ki set ho jayegi.</p>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Jama Karein',
+                    confirmButtonColor: '#2e7d32',
+                    preConfirm: () => {
+                        const amt = parseFloat(document.getElementById('jamaInput').value);
+                        if (isNaN(amt) || amt <= 0) {
+                            Swal.showValidationMessage('Sahi rakam dalein!');
+                            return false;
+                        }
+                        if (amt >= calc.total) {
+                            Swal.showValidationMessage('Jama rakam Total ke barabar ya zyada hai! Iske liye bahar se "Khata Band" dabayein.');
+                            return false;
+                        }
+                        return amt;
+                    }
+                });
+
+                if (jamaAmount) {
+                    Swal.fire({ title: 'Updating...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+                    
+                    const nayaMool = calc.total - jamaAmount;
+                    const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+                    const todayIso = new Date(Date.now() - tzOffset).toISOString();
+
+                    const cashRef = ref(database, 'shop_cash/balance');
+                    const cashSnap = await get(cashRef);
+                    let currentCash = cashSnap.exists() ? parseFloat(cashSnap.val()) : 0;
+
+                    if (currentTab === 'GIVEN') {
+                        await set(cashRef, currentCash + jamaAmount);
+                        await syncToDaybook('JAMA', jamaAmount, `Girvi Jama (Part): ${loanData.name}`, todayIso);
+                    } else {
+                        await set(cashRef, currentCash - jamaAmount);
+                        await syncToDaybook('KHARCH', jamaAmount, `Bank/Party Jama (Part): ${loanData.name}`, todayIso);
+                    }
+
+                    loanData.amount = nayaMool;
+                    loanData.date = todayIso;
+                    
+                    await set(ref(database, path), loanData);
+                    Swal.close();
+                    setTimeout(() => Swal.fire('Ho Gaya!', `₹${jamaAmount} jama ho gaye.\nNaya mool: ₹${nayaMool}\nNayi tarikh: Aaj se shuru.`, 'success'), 100);
+                }
+            } catch (e) {
+                Swal.close();
+                setTimeout(() => Swal.fire('Error', e.message, 'error'), 100);
+            }
+        };
+
+    </script>
+</body>
+</html>

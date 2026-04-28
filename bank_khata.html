@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank Passbook - App</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        /* NAYA: Mobile me click karne par aane wale neele rang (blue highlight) ko hatane ke liye */
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body { font-family: 'Poppins', sans-serif; background: #f4f7f6; margin: 0; padding: 10px; padding-bottom: 80px; }
+        
+        .header-nav { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .nav-btn { padding: 8px 15px; border: none; background: #ddd; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; }
+
+        .bank-row { 
+            background: white; padding: 15px; margin-bottom: 10px; 
+            border-radius: 10px; display: flex; justify-content: space-between; 
+            align-items: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-left: 5px solid #1976d2;
+        }
+        .bank-row:active { background: #f0f0f0; }
+        .bank-name { font-weight: bold; font-size: 15px; color: #333; }
+        .bank-bal { font-weight: bold; font-size: 16px; color: #2e7d32; }
+
+        #detailsSection { display: none; margin-top: 15px; }
+        .balance-card { 
+            background: #1976d2; color: white; padding: 20px; 
+            border-radius: 12px; text-align: center; margin-bottom: 15px; 
+        }
+        .history-card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .history-table td { padding: 12px; border-bottom: 1px solid #f0f0f0; }
+        
+        .type-plus { color: #2e7d32; font-weight: bold; }
+        .type-minus { color: #c62828; font-weight: bold; }
+
+        .footer-actions { 
+            position: fixed; bottom: 0; left: 0; width: 100%; 
+            background: white; padding: 12px; display: none; 
+            gap: 10px; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); 
+            box-sizing: border-box;
+        }
+        .btn-footer { 
+            flex: 1; padding: 12px; border: none; border-radius: 8px; 
+            color: white; font-weight: bold; cursor: pointer; font-size: 14px; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header-nav">
+        <button onclick="handleBackAction()" class="nav-btn"><i class="fa-solid fa-arrow-left"></i> Back</button>
+        <span id="pageTitle" style="font-weight:bold; color:#1976d2; font-size:16px;">Bank Accounts</span>
+    </div>
+
+    <div id="bankListContainer">
+        <p style="text-align:center; color:#888;">Banks load ho rahe hain...</p>
+    </div>
+
+    <div id="detailsSection">
+        <div class="balance-card">
+            <div id="selectedBankTitle" style="font-size: 14px; opacity: 0.9; margin-bottom: 5px;">Bank Name</div>
+            <div id="bankBalance" style="font-size: 28px; font-weight: bold;">₹0</div>
+        </div>
+
+        <div class="history-card">
+            <table class="history-table">
+                <tbody id="bankHistoryBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="footerActions" class="footer-actions">
+        <button class="btn-footer" style="background:#2e7d32;" onclick="makeEntry('CASH_TO_BANK')">
+            <i class="fa-solid fa-arrow-up"></i> Jama (EMI)
+        </button>
+        <button class="btn-footer" style="background:#c62828;" onclick="makeEntry('BANK_TO_CASH')">
+            <i class="fa-solid fa-arrow-down"></i> Nikasi (Loan)
+        </button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+        import { getDatabase, ref, get, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+        // =========================================================================
+        // 👇👇 DUSRE DUKANDAR KI NAYI FIREBASE API KEY YAHAN DALEIN 👇👇
+        // =========================================================================
+        
+        const firebaseConfig = {
+            apiKey: "AIzaSyDVayVaGksZJldKyvGb_GqgF2hfyyEQVHM",
+            authDomain: "stocks-cash.firebaseapp.com",
+            databaseURL: "https://stocks-cash-default-rtdb.firebaseio.com",
+            projectId: "stocks-cash",
+            storageBucket: "stocks-cash.firebasestorage.app",
+            messagingSenderId: "93527057975",
+            appId: "1:93527057975:web:c57cc6049d19272ccdc1b2"
+        };
+        
+        // =========================================================================
+        // 👆👆 YAHAN TAK BADALNA HAI, ISKE NEECHE KUCH MAT CHHEDNA 👆👆
+        // =========================================================================
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const database = getDatabase(app);
+
+        let currentBankKey = "";
+        let currentBankName = "";
+
+        history.pushState({ view: 'list' }, null, "");
+        window.addEventListener('popstate', (e) => {
+            if (document.getElementById('detailsSection').style.display === 'block') showBankList();
+            else window.location.href = 'dashboard.html';
+        });
+
+        window.handleBackAction = () => history.back();
+
+        onAuthStateChanged(auth, (user) => {
+            if (user) renderBankList(); else window.location.href = "index.html";
+        });
+
+        async function renderBankList() {
+            const container = document.getElementById('bankListContainer');
+            const snap = await get(ref(database, 'bank_accounts'));
+            if(!snap.exists()) return;
+            container.innerHTML = "";
+            snap.forEach(child => {
+                const bank = child.val();
+                const row = document.createElement('div');
+                row.className = 'bank-row';
+                row.onclick = () => loadBankDetails(child.key, bank.bankName);
+                
+                // NAYA: Balance aur Trash (Delete) icon dono ek sath set kiye gaye hain
+                row.innerHTML = `
+                    <div class="bank-info"><span class="bank-name">${bank.bankName}</span></div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div class="bank-bal">₹${(parseFloat(bank.balance) || 0).toLocaleString()}</div>
+                        <div onclick="event.stopPropagation(); window.deleteBankKhata('${child.key}', '${bank.bankName}')" style="padding: 5px; color: #d32f2f; cursor: pointer; font-size: 18px;">
+                            <i class="fa-solid fa-trash"></i>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        window.loadBankDetails = (bankKey, bankName) => {
+            currentBankKey = bankKey;
+            currentBankName = bankName;
+            document.getElementById('bankListContainer').style.display = 'none';
+            document.getElementById('detailsSection').style.display = 'block';
+            document.getElementById('footerActions').style.display = 'flex';
+            document.getElementById('pageTitle').innerText = "Passbook";
+            document.getElementById('selectedBankTitle').innerText = bankName;
+            history.pushState({ view: 'details' }, null, "");
+            
+            onValue(ref(database, `bank_accounts/${bankKey}/balance`), (s) => {
+                document.getElementById('bankBalance').innerText = '₹' + (parseFloat(s.val()) || 0).toLocaleString();
+            });
+            refreshHistory();
+        }
+
+        function refreshHistory() {
+            get(ref(database, 'bank_history')).then(snap => {
+                const tbody = document.getElementById('bankHistoryBody');
+                tbody.innerHTML = '';
+                let data = [];
+                if(snap.exists()) snap.forEach(c => { if(c.val().bankKey === currentBankKey) data.push(c.val()); });
+                data.reverse().forEach(item => {
+                    const isPlus = item.type === "CASH_TO_BANK";
+                    tbody.innerHTML += `<tr><td><strong>${item.date}</strong><br><small>${item.note || ''}</small></td>
+                        <td style="text-align:right;" class="${isPlus ? 'type-plus' : 'type-minus'}">${isPlus ? '+' : '-'} ₹${item.amount.toLocaleString()}</td></tr>`;
+                });
+            });
+        }
+
+        window.showBankList = () => {
+            document.getElementById('detailsSection').style.display = 'none';
+            document.getElementById('footerActions').style.display = 'none';
+            document.getElementById('bankListContainer').style.display = 'block';
+            document.getElementById('pageTitle').innerText = "Bank Accounts";
+            renderBankList();
+        }
+
+        window.makeEntry = async (type) => {
+            const { value: amt } = await Swal.fire({
+                title: type === 'CASH_TO_BANK' ? 'Bank mein Jama' : 'Bank se Nikasi',
+                input: 'number', inputPlaceholder: 'Amount ₹', showCancelButton: true
+            });
+
+            if(amt && parseFloat(amt) > 0) {
+                const amount = parseFloat(amt);
+                const tzOffset = (new Date()).getTimezoneOffset() * 60000;
+                const today = new Date(Date.now() - tzOffset).toISOString().split('T')[0].split('-').reverse().join('/');
+
+                const bankRef = ref(database, `bank_accounts/${currentBankKey}/balance`);
+                const cashRef = ref(database, 'shop_cash/balance');
+                
+                const [bSnap, cSnap] = await Promise.all([get(bankRef), get(cashRef)]);
+                let bBal = parseFloat(bSnap.val()) || 0;
+                let cBal = parseFloat(cSnap.val()) || 0;
+
+                if(type === 'CASH_TO_BANK') { bBal += amount; cBal -= amount; }
+                else { bBal -= amount; cBal += amount; }
+
+                await Promise.all([
+                    set(bankRef, bBal),
+                    set(cashRef, cBal),
+                    push(ref(database, 'bank_history'), {
+                        bankKey: currentBankKey, bankName: currentBankName, date: today,
+                        timestamp: Date.now(), type: type, amount: amount, note: type === 'CASH_TO_BANK' ? "Jama" : "Nikasi"
+                    })
+                ]);
+                refreshHistory();
+                Swal.fire('Saved!', 'Hisaab update ho gaya.', 'success');
+            }
+        }
+
+        // 🔐 NAYA: Universal Delete Password Checker (Bank Khata ke liye)
+        window.verifyDeletePassword = async function() {
+            const snap = await get(ref(database, 'settings/deletePassword'));
+            const asliPassword = snap.exists() ? snap.val() : "1234";
+
+            const { value: password } = await Swal.fire({
+                title: 'Security Lock',
+                text: 'Bank Khata delete karne ke liye apna Password daalein:',
+                input: 'password',
+                inputPlaceholder: 'Password yahan likhein...',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#808080',
+                confirmButtonText: 'Unlock & Delete'
+            });
+
+            if (password !== undefined) {
+                if (password === asliPassword) {
+                    return true; // Password Sahi hai
+                } else {
+                    Swal.fire('Galat Password!', 'Khata delete nahi hua.', 'error');
+                    return false; // Password Galat hai
+                }
+            }
+            return false; // Cancel daba diya
+        };
+
+        // 🗑️ Bank Khata Delete Function (Password Security ke sath)
+        window.deleteBankKhata = async function(bankKey, bankName) {
+            Swal.fire({
+                title: `'${bankName}' Delete Karein?`,
+                text: "Kya aap sach mein is bank khate ko hamesha ke liye mitana chahte hain?",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Haan, Delete kar do!'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    
+                    // 👇 Password check karega 👇
+                    const passCheck = await window.verifyDeletePassword();
+                    if (!passCheck) return; // Agar password galat to ruk jayega
+
+                    await remove(ref(database, 'bank_accounts/' + bankKey));
+                    Swal.fire('Deleted!', 'Bank khata mita diya gaya hai.', 'success').then(() => {
+                        location.reload();
+                    });
+                }
+            });
+        };
+    </script>
+</body>
+</html>

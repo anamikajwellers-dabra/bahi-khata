@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermal Bill</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; margin: 0; padding: 0; background: #fff; color: #000000; }
+        
+        /* Buttons ka Container thoda alag kiya gaya hai taki PDF me na aaye */
+        .button-container { width: 58mm; max-width: 100%; margin: 10px auto; padding: 0 10px; box-sizing: border-box; }
+        
+        .ticket { width: 58mm; /* Agar printer bada hai to 80mm kar lein */ max-width: 100%; margin: 0 auto; padding: 10px; font-size: 12px; box-sizing: border-box; }
+        .center { text-align: center; }
+        .left { text-align: left; }
+        .right { text-align: right; }
+        .bold { font-weight: bold; }
+        .line { border-top: 1px dashed #000; margin: 8px 0; }
+        h1 { font-size: 18px; margin: 5px 0; text-transform: uppercase; }
+        p { margin: 3px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 11px; }
+        th, td { padding: 4px 0; }
+        th { border-bottom: 1px dashed #000; border-top: 1px dashed #000; }
+        
+        @media print { .no-print { display: none !important; } body { margin: 0; padding: 0; } }
+        
+        /* Naye Buttons ka Design */
+        .action-buttons { display: flex; gap: 5px; margin-bottom: 5px; }
+        .btn-print { background: #333; color: white; padding: 10px; flex: 1; border: none; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; justify-content: center; align-items: center; gap: 5px;}
+        .btn-wa { background: #25D366; color: white; padding: 10px; flex: 1; border: none; font-size: 13px; font-weight: bold; cursor: pointer; border-radius: 4px; display: flex; justify-content: center; align-items: center; gap: 5px;}
+        
+        @media print { 
+            @page {
+                size: 58mm auto; /* Width 58mm, height apne aap adjust hogi */
+                margin: 0; /* Browser ke aaju-baaju ke default white spaces hatane ke liye */
+            }
+            .no-print { display: none !important; } 
+            body { margin: 0; padding: 0; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="button-container no-print">
+        <div class="action-buttons">
+            <button class="btn-print" onclick="window.print()"><i class="fa-solid fa-print"></i> Print</button>
+            <button class="btn-wa" onclick="sendWhatsAppBill()"><i class="fa-brands fa-whatsapp"></i> WA</button>
+        </div>
+    </div>
+
+    <div class="ticket" id="invoice">
+        <div class="center">
+            <h1>Anamika Jewellers</h1>
+           <p>Quality of Trust</p>
+           <p>Dabra, MP</p>
+           <p>Mob: 9977441399</p>
+           <p>Mob: 9826290424</p> 
+        </div>
+
+        <div class="line"></div>
+        <p>Bill No: <span class="bold" id="billNo">#000</span></p>
+        <p>Date: <span id="billDate">00/00/0000</span></p>
+        <p>Cust: <span class="bold" id="custName">Name</span></p>
+        <div class="line"></div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th class="left">Item</th>
+                    <th class="center">Wt</th>
+                    <th class="right">Amt</th>
+                </tr>
+            </thead>
+            <tbody id="itemRows"></tbody>
+        </table>
+
+        <div class="line"></div>
+        
+        <div style="display: flex; justify-content: space-between;">
+            <span>Kul Rakam:</span> <span id="totalAmt">0</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>Old Silver:</span> <span id="oldVal">0</span>
+        </div>
+        <div class="line"></div>
+        <div style="display: flex; justify-content: space-between;" class="bold">
+            <span>Net Bill:</span> <span id="netBill">0</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+            <span>Jama Cash:</span> <span id="rcvdCash">0</span>
+        </div>
+        <div class="line"></div>
+        <div style="display: flex; justify-content: space-between; font-size: 14px;" class="bold">
+            <span>Baki:</span> <span id="balance">0</span>
+        </div>
+
+        <div class="line"></div>
+        <div class="center" style="margin-top: 10px;">
+            <p>Thank You!</p>
+            <p style="font-size: 10px;">Bika maal badla nahi jayega.</p>
+        </div>
+    </div>
+
+    <script>
+        const data = JSON.parse(localStorage.getItem('printBillData'));
+        if (data) {
+            document.getElementById('billNo').innerText = data.billNo;
+            document.title = "Bill_" + data.billNo; 
+            document.getElementById('billDate').innerText = data.date;
+            document.getElementById('custName').innerText = data.customerName;
+            
+            const grandTotal = parseFloat(data.grandTotal) || 0;
+            const oldVal = parseFloat(data.oldSilverValue) || 0;
+            const rcvdCash = parseFloat(data.receivedCash) || 0;
+            const netBill = grandTotal - oldVal;
+            const balance = netBill - rcvdCash;
+
+            document.getElementById('totalAmt').innerText = grandTotal;
+            document.getElementById('oldVal').innerText = "-" + oldVal;
+            document.getElementById('netBill').innerText = netBill;
+            document.getElementById('rcvdCash').innerText = "-" + rcvdCash;
+            document.getElementById('balance').innerText = balance;
+
+            let rows = "";
+            data.items.forEach(item => {
+                let shortName = item.itemName.substring(0, 10); // Lamba naam katne se bachega
+                rows += `<tr>
+                    <td class="left">${shortName}</td>
+                    <td class="center">${item.weight}g</td>
+                    <td class="right">${item.amount}</td>
+                </tr>`;
+            });
+            document.getElementById('itemRows').innerHTML = rows;
+        }
+
+        // NAYA CODE: Automatic PDF Download (Thermal Size me)
+        function autoDownloadThermalPDF() {
+            if (!data) return;
+
+            const element = document.getElementById('invoice');
+            const fileName = "Thermal_Bill_" + data.billNo + ".pdf";
+
+            const opt = {
+                margin:       2,
+                filename:     fileName,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                // Format ko [58, 300] rakha hai taki thermal roll jaisa lamba PDF bane
+                jsPDF:        { unit: 'mm', format: [58, 300], orientation: 'portrait' }
+            };
+
+            // PDF generate karke automatically save karega
+            html2pdf().set(opt).from(element).save();
+        }
+
+        // Page load hone ke 1.5 second baad PDF download shuru hogi
+        window.onload = function() {
+            setTimeout(autoDownloadThermalPDF, 1500); 
+        };
+
+        // WhatsApp wala function
+        function sendWhatsAppBill() {
+            if (!data) return;
+
+            if (!data.customerMobile || data.customerMobile.trim() === "") {
+                alert('Customer ka mobile number save nahi hai! Bill bhejne ke liye number zaroori hai.');
+                return;
+            }
+            
+            let phone = data.customerMobile.trim();
+            if (phone.length === 10) phone = "91" + phone; 
+
+            let msg = `*Anamika Jewellers* 💍\n_QUALITY OF TRUST_\n------------------------\n`;
+            msg += `👤 Grahak: *${data.customerName}*\n📅 Date: ${data.date}\n🧾 Bill No: ${data.billNo}\n------------------------\n`;
+            
+            msg += `*Item Details:*\n`;
+            data.items.forEach(i => {
+                msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
+            });
+
+            const grandTotal = parseFloat(data.grandTotal) || 0;
+            const oldVal = parseFloat(data.oldSilverValue) || 0;
+            const rcvdCash = parseFloat(data.receivedCash) || 0;
+            const netAmt = grandTotal - oldVal;
+            const balanceDue = netAmt - rcvdCash;
+            
+            msg += `------------------------\n`;
+            msg += `Kul Rakam: ₹${grandTotal}\n`;
+            if (oldVal > 0) {
+                msg += `Purani Chandi: -₹${oldVal}\n`;
+            }
+            msg += `*Net Bill: ₹${netAmt}*\n`;
+            msg += `Jama Cash: ₹${rcvdCash}\n`;
+            msg += `*Baki Udhaar: ₹${balanceDue}*\n`;
+            msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
+
+            let encodedText = encodeURIComponent(msg);
+            window.open(`https://wa.me/${phone}?text=${encodedText}`, '_blank');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anamika Jewellers - Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .login-card {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 350px;
+            text-align: center;
+        }
+        .login-card h2 {
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .login-card p {
+            color: #777;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .login-btn:hover {
+            background-color: #0b5ed7;
+        }
+        #errorMessage {
+            color: red;
+            font-size: 14px;
+            margin-top: 15px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <h2>Anamika Jewellers</h2>
+        <p>Stock & Cash Management</p>
+        
+        <input type="email" id="email" class="input-field" placeholder="Admin Email ID" required>
+        <input type="password" id="password" class="input-field" placeholder="Password" required>
+        
+        <button id="loginBtn" class="login-btn">Login</button>
+        
+        <p style="margin-top: 15px; font-size: 13px;">
+            <a href="#" id="forgotPasswordLink" style="color: #0d6efd; text-decoration: none; font-weight: bold;">Password bhool gaye? (Reset karein)</a>
+        </p>
+
+        <p id="errorMessage"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-analytics.js";
+        import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-auth.js";
+
+
+        // Aapki di hui Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDVayVaGksZJldKyvGb_GqgF2hfyyEQVHM",
+            authDomain: "stocks-cash.firebaseapp.com",
+            databaseURL: "https://stocks-cash-default-rtdb.firebaseio.com",
+            projectId: "stocks-cash",
+            storageBucket: "stocks-cash.firebasestorage.app",
+            messagingSenderId: "93527057975",
+            appId: "1:93527057975:web:c57cc6049d19272ccdc1b2",
+            measurementId: "G-NCHFKT62BG"
+        };
+
+        // Firebase Setup
+        const app = initializeApp(firebaseConfig);
+        const analytics = getAnalytics(app);
+        const auth = getAuth(app); // Login check karne ke liye 
+
+        // Jab aap 'Login' button dabayenge
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('errorMessage');
+
+            // Agar email ya password khali chhod diya
+            if(!email || !password) {
+                errorMsg.innerText = "Kripya Email aur Password dono daalein.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            // Firebase se ID Password verify karna
+            signInWithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    // Agar login theek raha
+                    errorMsg.style.display = "none";
+                    alert("Login Successful! Ab aap dashboard par jayenge.");
+                    
+                    // Login ke baad user ko Dashboard page par bhejna
+                    window.location.href = "dashboard.html"; 
+                })
+                .catch((error) => {
+                    // Agar password galat hua ya id nahi mili
+                    errorMsg.style.display = "block";
+                    errorMsg.innerText = "Error: " + error.message;
+                });
+        });
+            // NAYA: Forgot Password ka Logic
+        document.getElementById('forgotPasswordLink').addEventListener('click', (e) => {
+            e.preventDefault(); // Link ko page reload karne se rokne ke liye
+            
+            const email = document.getElementById('email').value.trim();
+            const errorMsg = document.getElementById('errorMessage');
+
+            // Agar email wala dabba khali hai
+            if(!email) {
+                errorMsg.innerText = "Kripya password reset karne ke liye upar apna Email ID daalein aur fir link par click karein.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            // Firebase se reset email bhejna
+            sendPasswordResetEmail(auth, email)
+                .then(() => {
+                    errorMsg.style.display = "none";
+                    alert("Password reset link aapke email (" + email + ") par bhej diya gaya hai! Kripya apna inbox check karein.");
+                })
+                .catch((error) => {
+                    errorMsg.style.display = "block";
+                    // Firebase ke error message ko thoda aasan banana
+                    if(error.code === 'auth/user-not-found') {
+                        errorMsg.innerText = "Is email se koi account nahi mila.";
+                    } else if(error.code === 'auth/invalid-email') {
+                        errorMsg.innerText = "Kripya sahi Email ID daalein.";
+                    } else {
+                        errorMsg.innerText = "Error: " + error.message;
+                    }
+                });
+        });
+   
+        
+    </script>
+
+</body>
+</html>
