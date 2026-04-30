@@ -110,9 +110,9 @@
             <i class="fa-solid fa-print"></i> Print / Download
         </button>
 
-        <a id="waShareBtn" class="btn-wa-icon" title="WhatsApp par bhejein" style="text-decoration: none; cursor: pointer;">
+        <button id="waShareBtn" class="btn-wa-icon" title="WhatsApp par bhejein">
     <i class="fa-brands fa-whatsapp"></i>
-</a>
+</button>
 
 
     </div>
@@ -150,36 +150,36 @@
             });
             document.getElementById('itemRows').innerHTML = rows;
 
-            // NAYA CODE: Index.html file jaisi "Makkhan" WhatsApp Link Logic
-if (data.customerMobile && data.customerMobile.trim() !== "") {
-    let phone = data.customerMobile.trim();
-    if (phone.length === 10) phone = "91" + phone; 
-
-    let msg = `*Anamika Jewellers* 💍\n_QUALITY OF TRUST_\n------------------------\n`;
-    msg += `👤 Grahak: *${data.customerName}*\n📅 Date: ${data.date}\n🧾 Bill No: ${data.billNo}\n------------------------\n`;
-    msg += `*Item Details:*\n`;
-    data.items.forEach(i => {
-        msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
-    });
+            // NAYA CODE: Button Click Event (AppCreator24 Crash Bypass)
+document.getElementById('waShareBtn').onclick = function(e) { 
+    e.preventDefault(); 
     
-    msg += `------------------------\n`;
-    msg += `Kul Rakam: ₹${grandTotal}\n`;
-    if (oldVal > 0) msg += `Purani Chandi: -₹${oldVal}\n`;
-    msg += `*Net Bill: ₹${netBill}*\n`;
-    msg += `Jama Cash: ₹${rcvdCash}\n`;
-    msg += `*Baki Udhaar: ₹${balance}*\n`;
-    msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
+    // Check karein ki number hai ya nahi
+    if (data && data.customerMobile && data.customerMobile.trim() !== "") {
+        let phone = data.customerMobile.trim();
+        if (phone.length === 10) phone = "91" + phone; 
 
-    // Same logic jo aapki index file me 'modalWaBtn' ke liye kaam kar rahi hai
-    document.getElementById('waShareBtn').href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-} else {
-    document.getElementById('waShareBtn').href = "#";
-    document.getElementById('waShareBtn').onclick = function(e) { 
-        e.preventDefault(); 
+        // Message ready karein
+        let msg = `*Anamika Jewellers* 💍\n_QUALITY OF TRUST_\n------------------------\n`;
+        msg += `👤 Grahak: *${data.customerName}*\n📅 Date: ${data.date}\n🧾 Bill No: ${data.billNo}\n------------------------\n`;
+        msg += `*Item Details:*\n`;
+        data.items.forEach(i => {
+            msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
+        });
+        
+        msg += `------------------------\n`;
+        msg += `Kul Rakam: ₹${data.grandTotal}\n`;
+        if (data.oldSilverValue > 0) msg += `Purani Chandi: -₹${data.oldSilverValue}\n`;
+        msg += `*Net Bill: ₹${document.getElementById('netBill').innerText.replace('₹', '')}*\n`;
+        msg += `Jama Cash: ₹${data.receivedCash}\n`;
+        msg += `*Baki Udhaar: ₹${document.getElementById('balance').innerText.replace('₹', '')}*\n`;
+        msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
+
+        // window.open use karne se AppCreator24 crash nahi hota
+        let finalUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+        window.open(finalUrl, '_blank');
+
+    } else {
         alert('Customer ka mobile number nahi mila!'); 
-    };
-}
-
-    </script>
-</body>
-</html>
+    }
+};
