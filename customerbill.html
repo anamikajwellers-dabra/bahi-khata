@@ -110,9 +110,11 @@
             <i class="fa-solid fa-print"></i> Print / Download
         </button>
 
-        <button class="btn-wa-icon" onclick="sendWhatsAppBill()" title="WhatsApp par bhejein">
-            <i class="fa-brands fa-whatsapp"></i>
-        </button>
+        <a id="waShareBtn" class="btn-wa-icon" title="WhatsApp par bhejein" style="text-decoration: none; cursor: pointer;">
+    <i class="fa-brands fa-whatsapp"></i>
+</a>
+
+
     </div>
 
     <script>
@@ -147,40 +149,9 @@
                 </tr>`;
             });
             document.getElementById('itemRows').innerHTML = rows;
-        }
 
-        // NAYA CODE: Automatic PDF Download karne ka function
-        function autoDownloadPDF() {
-            if (!data) return;
-
-            const element = document.getElementById('invoice');
-            const fileName = "Bill_" + data.billNo + ".pdf"; // Bill number ke naam se save hoga
-
-            const opt = {
-                margin:       5,
-                filename:     fileName,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            // PDF generate karke automatically save karega
-            html2pdf().set(opt).from(element).save();
-        }
-
-        // Jaise hi page pura khul jayega, 1.5 second baad PDF download shuru ho jayegi
-        window.onload = function() {
-            setTimeout(autoDownloadPDF, 1500); 
-        };
-
-        // WhatsApp wala function waisa hi hai
-        function sendWhatsAppBill() {
-    if (!data) return;
-    if (!data.customerMobile || data.customerMobile.trim() === "") {
-        alert('Customer ka mobile number nahi mila!');
-        return;
-    }
-    
+            // NAYA CODE: Index.html file jaisi "Makkhan" WhatsApp Link Logic
+if (data.customerMobile && data.customerMobile.trim() !== "") {
     let phone = data.customerMobile.trim();
     if (phone.length === 10) phone = "91" + phone; 
 
@@ -190,23 +161,23 @@
     data.items.forEach(i => {
         msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
     });
-
-    const grandTotal = parseFloat(data.grandTotal) || 0;
-    const oldVal = parseFloat(data.oldSilverValue) || 0;
-    const rcvdCash = parseFloat(data.receivedCash) || 0;
-    const netAmt = grandTotal - oldVal;
-    const balanceDue = netAmt - rcvdCash;
     
     msg += `------------------------\n`;
     msg += `Kul Rakam: ₹${grandTotal}\n`;
     if (oldVal > 0) msg += `Purani Chandi: -₹${oldVal}\n`;
-    msg += `*Net Bill: ₹${netAmt}*\n`;
+    msg += `*Net Bill: ₹${netBill}*\n`;
     msg += `Jama Cash: ₹${rcvdCash}\n`;
-    msg += `*Baki Udhaar: ₹${balanceDue}*\n`;
+    msg += `*Baki Udhaar: ₹${balance}*\n`;
     msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
 
-    // AppCreator24 ke liye Fix: Direct WhatsApp app open karega bina naya tab khole
-    window.location.href = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+    // Same logic jo aapki index file me 'modalWaBtn' ke liye kaam kar rahi hai
+    document.getElementById('waShareBtn').href = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+} else {
+    document.getElementById('waShareBtn').href = "#";
+    document.getElementById('waShareBtn').onclick = function(e) { 
+        e.preventDefault(); 
+        alert('Customer ka mobile number nahi mila!'); 
+    };
 }
 
     </script>
