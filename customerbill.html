@@ -115,98 +115,99 @@
         </button>
     </div>
 
-    <script>
-        const data = JSON.parse(localStorage.getItem('printBillData'));
+<script>
+    const data = JSON.parse(localStorage.getItem('printBillData'));
+    
+    if (data) {
+        // 1. Bill ki details HTML mein set karna (Yeh miss ho gaya tha)
+        document.getElementById('billNo').innerText = data.billNo;
+        document.title = "Bill_" + data.billNo; 
+        document.getElementById('billDate').innerText = data.date;
+        document.getElementById('custName').innerText = data.customerName;
+        document.getElementById('custMobile').innerText = data.customerMobile || '';
         
-        if (data) {
-            document.getElementById('billNo').innerText = data.billNo;
-            document.title = "Bill_" + data.billNo; 
-            document.getElementById('billDate').innerText = data.date;
-            document.getElementById('custName').innerText = data.customerName;
-            document.getElementById('custMobile').innerText = data.customerMobile || '';
+        const grandTotal = parseFloat(data.grandTotal) || 0;
+        const oldVal = parseFloat(data.oldSilverValue) || 0;
+        const rcvdCash = parseFloat(data.receivedCash) || 0;
+        const netBill = grandTotal - oldVal;
+        const balance = netBill - rcvdCash;
+
+        document.getElementById('totalAmt').innerText = "₹" + grandTotal;
+        document.getElementById('oldWt').innerText = data.oldSilverWeight || 0;
+        document.getElementById('oldVal').innerText = "-₹" + oldVal;
+        document.getElementById('netBill').innerText = "₹" + netBill;
+        document.getElementById('rcvdCash').innerText = "-₹" + rcvdCash;
+        document.getElementById('balance').innerText = "₹" + balance;
+
+        let rows = "";
+        data.items.forEach(item => {
+            rows += `<tr>
+                <td>${item.itemName}</td>
+                <td style="text-align: center;">${item.weight}g</td>
+                <td style="text-align: right;">₹${item.amount}</td>
+            </tr>`;
+        });
+        document.getElementById('itemRows').innerHTML = rows;
+
+        // 2. NAYA CODE: WhatsApp Button Click Event (Crash Bypass)
+        document.getElementById('waShareBtn').onclick = function(e) { 
+            e.preventDefault(); 
             
-            const grandTotal = parseFloat(data.grandTotal) || 0;
-            const oldVal = parseFloat(data.oldSilverValue) || 0;
-            const rcvdCash = parseFloat(data.receivedCash) || 0;
-            const netBill = grandTotal - oldVal;
-            const balance = netBill - rcvdCash;
+            if (data.customerMobile && data.customerMobile.trim() !== "") {
+                let phone = data.customerMobile.trim();
+                if (phone.length === 10) phone = "91" + phone; 
 
-            document.getElementById('totalAmt').innerText = "₹" + grandTotal;
-            document.getElementById('oldWt').innerText = data.oldSilverWeight || 0;
-            document.getElementById('oldVal').innerText = "-₹" + oldVal;
-            document.getElementById('netBill').innerText = "₹" + netBill;
-            document.getElementById('rcvdCash').innerText = "-₹" + rcvdCash;
-            document.getElementById('balance').innerText = "₹" + balance;
+                let msg = `*Anamika Jewellers* 💍\n_QUALITY OF TRUST_\n------------------------\n`;
+                msg += `👤 Grahak: *${data.customerName}*\n📅 Date: ${data.date}\n🧾 Bill No: ${data.billNo}\n------------------------\n`;
+                msg += `*Item Details:*\n`;
+                data.items.forEach(i => {
+                    msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
+                });
+                
+                msg += `------------------------\n`;
+                msg += `Kul Rakam: ₹${grandTotal}\n`;
+                if (oldVal > 0) msg += `Purani Chandi: -₹${oldVal}\n`;
+                msg += `*Net Bill: ₹${netBill}*\n`;
+                msg += `Jama Cash: ₹${rcvdCash}\n`;
+                msg += `*Baki Udhaar: ₹${balance}*\n`;
+                msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
 
-            let rows = "";
-            data.items.forEach(item => {
-                rows += `<tr>
-                    <td>${item.itemName}</td>
-                    <td style="text-align: center;">${item.weight}g</td>
-                    <td style="text-align: right;">₹${item.amount}</td>
-                </tr>`;
-            });
-            document.getElementById('itemRows').innerHTML = rows;
-        }
+                // window.open se link kholenge taaki AppCreator24 crash na ho
+                let finalUrl = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+                window.open(finalUrl, '_blank');
+            } else {
+                alert('Customer ka mobile number nahi mila!'); 
+            }
+        };
+    } else {
+        document.getElementById('waShareBtn').onclick = function(e) { 
+            e.preventDefault(); 
+            alert('Bill ka data load nahi hua!'); 
+        };
+    }
 
-        // NAYA CODE: Automatic PDF Download karne ka function
-        function autoDownloadPDF() {
-            if (!data) return;
+    // Automatic PDF Download karne ka function
+    function autoDownloadPDF() {
+        if (!data) return;
 
-            const element = document.getElementById('invoice');
-            const fileName = "Bill_" + data.billNo + ".pdf"; // Bill number ke naam se save hoga
+        const element = document.getElementById('invoice');
+        const fileName = "Bill_" + data.billNo + ".pdf"; 
 
-            const opt = {
-                margin:       5,
-                filename:     fileName,
-                image:        { type: 'jpeg', quality: 0.98 },
-                html2canvas:  { scale: 2 },
-                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            // PDF generate karke automatically save karega
-            html2pdf().set(opt).from(element).save();
-        }
-
-        // Jaise hi page pura khul jayega, 1.5 second baad PDF download shuru ho jayegi
-        window.onload = function() {
-            setTimeout(autoDownloadPDF, 1500); 
+        const opt = {
+            margin:       5,
+            filename:     fileName,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
-        // WhatsApp wala function waisa hi hai
-        function sendWhatsAppBill() {
-            if (!data) return;
-            if (!data.customerMobile || data.customerMobile.trim() === "") {
-                alert('Customer ka mobile number nahi mila!');
-                return;
-            }
-            
-            let phone = data.customerMobile.trim();
-            if (phone.length === 10) phone = "91" + phone; 
+        html2pdf().set(opt).from(element).save();
+    }
 
-            let msg = `*Anamika Jewellers* 💍\n_QUALITY OF TRUST_\n------------------------\n`;
-            msg += `👤 Grahak: *${data.customerName}*\n📅 Date: ${data.date}\n🧾 Bill No: ${data.billNo}\n------------------------\n`;
-            msg += `*Item Details:*\n`;
-            data.items.forEach(i => {
-                msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
-            });
+    window.onload = function() {
+        setTimeout(autoDownloadPDF, 1500); 
+    };
+</script>
 
-            const grandTotal = parseFloat(data.grandTotal) || 0;
-            const oldVal = parseFloat(data.oldSilverValue) || 0;
-            const rcvdCash = parseFloat(data.receivedCash) || 0;
-            const netAmt = grandTotal - oldVal;
-            const balanceDue = netAmt - rcvdCash;
-            
-            msg += `------------------------\n`;
-            msg += `Kul Rakam: ₹${grandTotal}\n`;
-            if (oldVal > 0) msg += `Purani Chandi: -₹${oldVal}\n`;
-            msg += `*Net Bill: ₹${netAmt}*\n`;
-            msg += `Jama Cash: ₹${rcvdCash}\n`;
-            msg += `*Baki Udhaar: ₹${balanceDue}*\n`;
-            msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
-
-            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-        }
-    </script>
 </body>
 </html>
