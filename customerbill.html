@@ -175,38 +175,40 @@
 
         // WhatsApp wala function waisa hi hai
         function sendWhatsAppBill() {
-            if (!data) return;
-            if (!data.customerMobile || data.customerMobile.trim() === "") {
-                alert('Customer ka mobile number nahi mila!');
-                return;
-            }
-            
-            let phone = data.customerMobile.trim();
-            if (phone.length === 10) phone = "91" + phone; 
+    if (!data) return;
+    if (!data.customerMobile || data.customerMobile.trim() === "") {
+        alert('Customer ka mobile number nahi mila!');
+        return;
+    }
+    
+    let phone = data.customerMobile.trim();
+    if (phone.length === 10) phone = "91" + phone; 
 
-            let msg = `*Anamika Jewellers* 💍\n_QUALITY OF TRUST_\n------------------------\n`;
-            msg += `👤 Grahak: *${data.customerName}*\n📅 Date: ${data.date}\n🧾 Bill No: ${data.billNo}\n------------------------\n`;
-            msg += `*Item Details:*\n`;
-            data.items.forEach(i => {
-                msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
-            });
+    let msg = `*Anamika Jewellers* 💍\n_QUALITY OF TRUST_\n------------------------\n`;
+    msg += `👤 Grahak: *${data.customerName}*\n📅 Date: ${data.date}\n🧾 Bill No: ${data.billNo}\n------------------------\n`;
+    msg += `*Item Details:*\n`;
+    data.items.forEach(i => {
+        msg += `🔸 ${i.itemName} (${i.weight}g) = ₹${i.amount}\n`;
+    });
 
-            const grandTotal = parseFloat(data.grandTotal) || 0;
-            const oldVal = parseFloat(data.oldSilverValue) || 0;
-            const rcvdCash = parseFloat(data.receivedCash) || 0;
-            const netAmt = grandTotal - oldVal;
-            const balanceDue = netAmt - rcvdCash;
-            
-            msg += `------------------------\n`;
-            msg += `Kul Rakam: ₹${grandTotal}\n`;
-            if (oldVal > 0) msg += `Purani Chandi: -₹${oldVal}\n`;
-            msg += `*Net Bill: ₹${netAmt}*\n`;
-            msg += `Jama Cash: ₹${rcvdCash}\n`;
-            msg += `*Baki Udhaar: ₹${balanceDue}*\n`;
-            msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
+    const grandTotal = parseFloat(data.grandTotal) || 0;
+    const oldVal = parseFloat(data.oldSilverValue) || 0;
+    const rcvdCash = parseFloat(data.receivedCash) || 0;
+    const netAmt = grandTotal - oldVal;
+    const balanceDue = netAmt - rcvdCash;
+    
+    msg += `------------------------\n`;
+    msg += `Kul Rakam: ₹${grandTotal}\n`;
+    if (oldVal > 0) msg += `Purani Chandi: -₹${oldVal}\n`;
+    msg += `*Net Bill: ₹${netAmt}*\n`;
+    msg += `Jama Cash: ₹${rcvdCash}\n`;
+    msg += `*Baki Udhaar: ₹${balanceDue}*\n`;
+    msg += `------------------------\nSada aapki seva mein tatpar!\n*Anamika Jewellers*`;
 
-            window.open(`https://wa.me/${phone}?text=${encodeURIComponent(msg)}`, '_blank');
-        }
+    // AppCreator24 ke liye Fix: Direct WhatsApp app open karega bina naya tab khole
+    window.location.href = `whatsapp://send?phone=${phone}&text=${encodeURIComponent(msg)}`;
+}
+
     </script>
 </body>
 </html>
